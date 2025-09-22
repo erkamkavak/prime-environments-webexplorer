@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+from typing import Any, Dict, cast
 
 import verifiers as vf
 from datasets import Dataset, load_dataset
@@ -38,7 +39,7 @@ def load_environment(
     # Create browse client outside function to reuse it
     browse_client = create_browse_client(browse_base_url, browse_api_key)
 
-    def search_tool(queries: list[str]) -> list[str]:
+    def search_tool(queries: list[str]) -> list[Dict]:
         """Search tool that takes one or multiple queries and returns Google search results."""
         logger.info(f"Search tool called with queries: {queries}")
         return google_search(queries, serper_api_key)
@@ -51,18 +52,22 @@ def load_environment(
     def load_dataset_from_huggingface() -> Dataset:
         try:
             # Load the dataset from HuggingFace
-            dataset = load_dataset("hkust-nlp/WebExplorer-QA", split="train")
+            dataset = cast(Dataset, load_dataset("hkust-nlp/WebExplorer-QA", split="train"))
+            rows: list[Dict[str, Any]] = dataset.to_list()
 
             examples = []
-            for item in dataset:
+            for item in rows:
+                question: str = str(item.get("question", "")).strip()
+                answer: str = str(item.get("answer", "")).strip()
+                ex_id: str | int = item.get("id", "")
                 examples.append(
                     {
-                        "question": QUERY_TEMPLATE.format(query=item["question"]),
-                        "answer": item["answer"],
+                        "question": QUERY_TEMPLATE.format(query=question),
+                        "answer": answer,
                         "task": "webexplorer",
                         "info": {
-                            "id": item["id"],
-                            "raw_query": item["question"],
+                            "id": ex_id,
+                            "raw_query": question,
                         },
                     }
                 )
